@@ -502,6 +502,22 @@ func (p *Peer) Close() error {
 	return err
 }
 
+// IsClosed는 연결이 닫혔는지 확인합니다.
+//
+// [확인 방식]
+// - 상태가 Disconnecting 또는 Disconnected면 닫힌 것으로 판단
+// - underlying connection의 상태도 확인
+func (p *Peer) IsClosed() bool {
+	state := p.State()
+	if state == StateDisconnecting || state == StateDisconnected {
+		return true
+	}
+	if p.conn != nil {
+		return p.conn.IsClosed()
+	}
+	return true
+}
+
 // String은 피어의 문자열 표현을 반환합니다.
 func (p *Peer) String() string {
 	return fmt.Sprintf("Peer{id=%s, addr=%s, state=%s, direction=%s}",
