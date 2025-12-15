@@ -51,7 +51,7 @@ type HashMap struct {
 	// [각 버킷]
 	// - 해당 해시 범위의 첫 번째 노드를 가리킴
 	// - 리스트의 "진입점" 역할
-	buckets []unsafe.Pointer // []*hashNode
+	buckets []unsafe.Pointer // []*hashNode 버컷배열
 
 	// bucketCount는 버킷 수입니다 (2의 거듭제곱).
 	bucketCount uint32

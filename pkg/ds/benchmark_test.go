@@ -231,3 +231,145 @@ func itoa(i int) string {
 	}
 	return s
 }
+
+// =============================================================================
+// HashMap 벤치마크
+// =============================================================================
+
+// BenchmarkHashMapMutex_Put은 Mutex 기반 해시맵의 Put 성능을 측정합니다.
+func BenchmarkHashMapMutex_Put(b *testing.B) {
+	m := syncds.NewHashMap()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.Put(itoa(i), i)
+	}
+}
+
+// BenchmarkHashMapLockFree_Put은 Lock-free 해시맵의 Put 성능을 측정합니다.
+func BenchmarkHashMapLockFree_Put(b *testing.B) {
+	m := lockfree.NewHashMap(64)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.Put(itoa(i), i)
+	}
+}
+
+// BenchmarkHashMapMutex_Get은 Mutex 기반 해시맵의 Get 성능을 측정합니다.
+func BenchmarkHashMapMutex_Get(b *testing.B) {
+	m := syncds.NewHashMap()
+
+	// 미리 데이터 채우기
+	for i := 0; i < 10000; i++ {
+		m.Put(itoa(i), i)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.Get(itoa(i % 10000))
+	}
+}
+
+// BenchmarkHashMapLockFree_Get은 Lock-free 해시맵의 Get 성능을 측정합니다.
+func BenchmarkHashMapLockFree_Get(b *testing.B) {
+	m := lockfree.NewHashMap(64)
+
+	// 미리 데이터 채우기
+	for i := 0; i < 10000; i++ {
+		m.Put(itoa(i), i)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.Get(itoa(i % 10000))
+	}
+}
+
+// BenchmarkHashMapMutex_Concurrent는 Mutex 기반 해시맵의 동시성 성능을 측정합니다.
+func BenchmarkHashMapMutex_Concurrent(b *testing.B) {
+	for _, goroutines := range []int{1, 4, 8, 16, 32} {
+		b.Run(concurrentName(goroutines), func(b *testing.B) {
+			m := syncds.NewHashMap()
+
+			// 초기 데이터
+			for i := 0; i < 1000; i++ {
+				m.Put(itoa(i), i)
+			}
+
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				i := 0
+				for pb.Next() {
+					key := itoa(i % 1000)
+					if i%4 == 0 {
+						m.Put(key, i)
+					} else {
+						m.Get(key)
+					}
+					i++
+				}
+			})
+		})
+	}
+}
+
+// BenchmarkHashMapLockFree_Concurrent는 Lock-free 해시맵의 동시성 성능을 측정합니다.
+func BenchmarkHashMapLockFree_Concurrent(b *testing.B) {
+	for _, goroutines := range []int{1, 4, 8, 16, 32} {
+		b.Run(concurrentName(goroutines), func(b *testing.B) {
+			m := lockfree.NewHashMap(64)
+
+			// 초기 데이터
+			for i := 0; i < 1000; i++ {
+				m.Put(itoa(i), i)
+			}
+
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				i := 0
+				for pb.Next() {
+					key := itoa(i % 1000)
+					if i%4 == 0 {
+						m.Put(key, i)
+					} else {
+						m.Get(key)
+					}
+					i++
+				}
+			})
+		})
+	}
+}
+
+// =============================================================================
+// Go sync.Map과 비교 (baseline)
+// =============================================================================
+
+// BenchmarkSyncMap_Concurrent는 Go 표준 sync.Map의 성능을 측정합니다.
+func BenchmarkSyncMap_Concurrent(b *testing.B) {
+	for _, goroutines := range []int{1, 4, 8, 16, 32} {
+		b.Run(concurrentName(goroutines), func(b *testing.B) {
+			var m sync.Map
+
+			// 초기 데이터
+			for i := 0; i < 1000; i++ {
+				m.Store(itoa(i), i)
+			}
+
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				i := 0
+				for pb.Next() {
+					key := itoa(i % 1000)
+					if i%4 == 0 {
+						m.Store(key, i)
+					} else {
+						m.Load(key)
+					}
+					i++
+				}
+			})
+		})
+	}
+}
