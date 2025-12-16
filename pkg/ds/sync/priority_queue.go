@@ -85,7 +85,7 @@ func (pq *PriorityQueue) Pop() (*Item, bool) {
 	if pq.items.Len() == 0 {
 		return nil, false
 	}
-
+	
 	item := heap.Pop(pq.items).(*Item)
 	return item, true
 }
