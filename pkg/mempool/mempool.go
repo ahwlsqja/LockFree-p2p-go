@@ -235,6 +235,10 @@ func (mp *Mempool) Add(tx *Tx) error {
 		return ErrLowGasPrice
 	}
 
+	// 수신 시간 설정 (Priority 계산 전에 설정해야 함)
+	// Priority()가 ReceivedAt을 사용하므로 용량 검사 전에 설정 필요
+	tx.ReceivedAt = time.Now()
+
 	mp.mu.Lock()
 	defer mp.mu.Unlock()
 
@@ -258,9 +262,6 @@ func (mp *Mempool) Add(tx *Tx) error {
 			return ErrMempoolFull
 		}
 	}
-
-	// 수신 시간 설정
-	tx.ReceivedAt = time.Now()
 
 	// 맵에 추가
 	mp.txs[tx.Hash] = tx
