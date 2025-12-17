@@ -373,3 +373,111 @@ func BenchmarkSyncMap_Concurrent(b *testing.B) {
 		})
 	}
 }
+
+// =============================================================================
+// PriorityQueue 벤치마크
+// =============================================================================
+
+// BenchmarkPriorityQueueMutex_Push는 Mutex 기반 우선순위 큐의 Push 성능을 측정합니다.
+func BenchmarkPriorityQueueMutex_Push(b *testing.B) {
+	pq := syncds.NewPriorityQueue()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		pq.Push(i, int64(i))
+	}
+}
+
+// BenchmarkPriorityQueueLockFree_Push는 Lock-free 우선순위 큐의 Push 성능을 측정합니다.
+func BenchmarkPriorityQueueLockFree_Push(b *testing.B) {
+	pq := lockfree.NewPriorityQueue()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		pq.Push(i, int64(i))
+	}
+}
+
+// BenchmarkPriorityQueueMutex_Pop는 Mutex 기반 우선순위 큐의 Pop 성능을 측정합니다.
+func BenchmarkPriorityQueueMutex_Pop(b *testing.B) {
+	pq := syncds.NewPriorityQueue()
+
+	// 미리 데이터 채우기
+	for i := 0; i < b.N; i++ {
+		pq.Push(i, int64(i))
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		pq.Pop()
+	}
+}
+
+// BenchmarkPriorityQueueLockFree_Pop는 Lock-free 우선순위 큐의 Pop 성능을 측정합니다.
+func BenchmarkPriorityQueueLockFree_Pop(b *testing.B) {
+	pq := lockfree.NewPriorityQueue()
+
+	// 미리 데이터 채우기
+	for i := 0; i < b.N; i++ {
+		pq.Push(i, int64(i))
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		pq.Pop()
+	}
+}
+
+// BenchmarkPriorityQueueMutex_Concurrent는 Mutex 기반 우선순위 큐의 동시성 성능을 측정합니다.
+func BenchmarkPriorityQueueMutex_Concurrent(b *testing.B) {
+	for _, goroutines := range []int{1, 4, 8, 16} {
+		b.Run(concurrentName(goroutines), func(b *testing.B) {
+			pq := syncds.NewPriorityQueue()
+
+			// 초기 데이터
+			for i := 0; i < 1000; i++ {
+				pq.Push(i, int64(i))
+			}
+
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				i := 0
+				for pb.Next() {
+					if i%2 == 0 {
+						pq.Push(i, int64(i%1000))
+					} else {
+						pq.Pop()
+					}
+					i++
+				}
+			})
+		})
+	}
+}
+
+// BenchmarkPriorityQueueLockFree_Concurrent는 Lock-free 우선순위 큐의 동시성 성능을 측정합니다.
+func BenchmarkPriorityQueueLockFree_Concurrent(b *testing.B) {
+	for _, goroutines := range []int{1, 4, 8, 16} {
+		b.Run(concurrentName(goroutines), func(b *testing.B) {
+			pq := lockfree.NewPriorityQueue()
+
+			// 초기 데이터
+			for i := 0; i < 1000; i++ {
+				pq.Push(i, int64(i))
+			}
+
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				i := 0
+				for pb.Next() {
+					if i%2 == 0 {
+						pq.Push(i, int64(i%1000))
+					} else {
+						pq.Pop()
+					}
+					i++
+				}
+			})
+		})
+	}
+}

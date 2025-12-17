@@ -140,7 +140,9 @@ func randomLevel() int {
 //    Level 0: HEAD → 5 → 30 → [50] → 100
 //                         ↑ CAS ↑
 func (pq *PriorityQueue) Push(value interface{}, priority int64) {
+	// 레벨 랜덤으로 정하고
 	level := randomLevel()
+	// 새로운 노드 인스턴스 생성
 	newNode := &skipNode{
 		priority: priority,
 		value:    unsafe.Pointer(&value),
@@ -214,9 +216,12 @@ func (pq *PriorityQueue) Push(value interface{}, priority int64) {
 // marked 플래그로 "이미 삭제됨"을 표시
 func (pq *PriorityQueue) Pop() (*Item, bool) {
 	for {
+		// 첫번째 노드찾기
 		head := (*skipNode)(atomic.LoadPointer(&pq.head))
+		// 0레벨 fisrt 
 		first := (*skipNode)(atomic.LoadPointer(&head.next[0]))
 
+		//비어있는지 확인
 		if first == nil {
 			return nil, false // 비어있음
 		}
@@ -225,34 +230,46 @@ func (pq *PriorityQueue) Pop() (*Item, bool) {
 		if atomic.CompareAndSwapInt32(&first.marked, 0, 1) {
 			// 물리적 삭제 (Level 0)
 			next := (*skipNode)(atomic.LoadPointer(&first.next[0]))
+			// level 0 에서 우선순위 제일 높은 친구랑 그 다음 거랑 Swap 즉 물리적 삭제
 			atomic.CompareAndSwapPointer(&head.next[0], unsafe.Pointer(first), unsafe.Pointer(next))
 
 			// 높은 레벨도 삭제 (lazy하게)
 			for i := 1; i < first.level; i++ {
 				for {
+					// 이전 노드는 head
 					pred := head
+					// 현재 노드는 head 다음의 노드
 					curr := (*skipNode)(atomic.LoadPointer(&pred.next[i]))
 
+					// 현재 노드가 비어있지 않고, 현재 노드가 찾는 노드가 아닐 때
 					for curr != nil && curr != first {
+						// 현재 노드를 이전노드 라고 하고
 						pred = curr
+						// 현재 노드를 이전 노드 + 1로 정함 즉 이전부터 +1 한거임
 						curr = (*skipNode)(atomic.LoadPointer(&curr.next[i]))
 					}
 
+					// 현재 노드가 찾는 노드면
 					if curr == first {
+						// 다음 노드를 찾는 노드 + 1 노드로 정하고
 						next := (*skipNode)(atomic.LoadPointer(&first.next[i]))
+						// 이전 노드의 다음 자리를 first에서 next 바로 전에 정한 그 친구로 함.
 						if atomic.CompareAndSwapPointer(&pred.next[i], unsafe.Pointer(first), unsafe.Pointer(next)) {
 							break
 						}
-					} else {
+					} else { // curr = nil 이면 break 걍 탈출
 						break
 					}
 				}
 			}
 
+			// 그리고 삭제 됬으니까 Count -1 
 			atomic.AddInt64(&pq.count, -1)
 
 			// 값 반환
 			valPtr := atomic.LoadPointer(&first.value)
+
+			// valPtr 가 널이 아니면
 			if valPtr != nil {
 				return &Item{
 					Value:    *(*interface{})(valPtr),
