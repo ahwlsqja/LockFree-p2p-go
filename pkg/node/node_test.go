@@ -374,6 +374,11 @@ func TestBroadcast(t *testing.T) {
 	}
 	defer seed.Stop()
 
+	// seed에도 Tx 핸들러 등록 (gossip으로 돌아오는 메시지 처리용)
+	seed.OnMessage(protocol.MsgTx, func(p *peer.Peer, msg *protocol.Message) error {
+		return nil // 무시
+	})
+
 	seedAddr := seed.ListenAddr()
 
 	// 수신 카운터
@@ -623,6 +628,11 @@ func BenchmarkBroadcast(b *testing.B) {
 	}
 	defer server.Stop()
 
+	// 서버에 Tx 핸들러 등록 (gossip 메시지 처리용)
+	server.OnMessage(protocol.MsgTx, func(p *peer.Peer, msg *protocol.Message) error {
+		return nil
+	})
+
 	serverAddr := server.ListenAddr()
 
 	// 클라이언트들
@@ -636,6 +646,12 @@ func BenchmarkBroadcast(b *testing.B) {
 		if err != nil {
 			b.Fatalf("클라이언트 생성 실패: %v", err)
 		}
+
+		// 클라이언트에도 Tx 핸들러 등록
+		client.OnMessage(protocol.MsgTx, func(p *peer.Peer, msg *protocol.Message) error {
+			return nil
+		})
+
 		if err := client.Start(); err != nil {
 			b.Fatalf("클라이언트 시작 실패: %v", err)
 		}
@@ -840,6 +856,11 @@ func TestMessageOrdering(t *testing.T) {
 		t.Fatalf("서버 시작 실패: %v", err)
 	}
 	defer server.Stop()
+
+	// 서버에 Tx 핸들러 등록 (gossip 메시지 처리용)
+	server.OnMessage(protocol.MsgTx, func(p *peer.Peer, msg *protocol.Message) error {
+		return nil
+	})
 
 	serverAddr := server.ListenAddr()
 

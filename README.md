@@ -136,24 +136,8 @@ Goroutines  Mutex(Heap) Lock-free(SkipList)
 
 ### Benchmark Screenshots
 
-> Add your benchmark screenshots here
-
-<!--
-실제 벤치마크 실행 결과 스크린샷을 여기에 추가하세요.
-
-#### Queue Benchmark
-![Queue Benchmark](docs/images/bench-queue.png)
-
-#### HashMap Benchmark
-![HashMap Benchmark](docs/images/bench-hashmap.png)
-
-#### Priority Queue Benchmark
-![Priority Queue Benchmark](docs/images/bench-pq.png)
--->
-
-```
-[INSERT BENCHMARK SCREENSHOT HERE]
-```
+#### BroadcastManager Optimizations
+![Benchmark Results](files/벤치마크.png)
 
 ---
 
@@ -200,9 +184,9 @@ Message deduplication requires hashing every incoming message. We replaced crypt
 
 | Implementation | ns/op | B/op | allocs/op | Speedup |
 |----------------|------:|-----:|----------:|--------:|
-| SHA256 + hex.EncodeToString | 426.8 | 160 | 3 | baseline |
-| xxhash + sync.Pool | 45.0 | 0 | 0 | **9.5x** |
-| xxhash.Sum64 (direct) | 25.5 | 0 | 0 | **16.7x** |
+| SHA256 + hex.EncodeToString | 398.9 | 160 | 3 | baseline |
+| xxhash + sync.Pool | 41.24 | 0 | 0 | **9.7x** |
+| xxhash.Sum64 (direct) | 23.22 | 0 | 0 | **17.2x** |
 
 **Why 0 B/op?**
 - `sync.Pool` reuses `xxhash.Digest` instances across calls
@@ -231,9 +215,9 @@ The duplicate message cache is read-heavy (90%+ lookups are cache hits).
 
 | Scenario | sync.Map | RWMutex | Speedup |
 |----------|------:|-------:|--------:|
-| ReadOnly (100% read) | 10.12 ns/op | 40.46 ns/op | **4.0x** |
-| ReadHeavy (90% read, 10% write) | 83.88 ns/op | 123.7 ns/op | **1.5x** |
-| WriteHeavy (50% read, 50% write) | ~equal | ~equal | 1.0x |
+| ReadOnly (100% read) | 7.74 ns/op | 27.79 ns/op | **3.6x** |
+| ReadHeavy (90% read, 10% write) | 66.66 ns/op | 109.9 ns/op | **1.6x** |
+| WriteHeavy (50% read, 50% write) | 279.1 ns/op | 150.2 ns/op | 0.5x (RWMutex wins) |
 
 **Key insight**: P2P networks see the same message multiple times from different peers. Most `MarkSeen()` calls hit existing entries → read-heavy workload → sync.Map wins.
 
@@ -241,10 +225,10 @@ The duplicate message cache is read-heavy (90%+ lookups are cache hits).
 
 Gossip target selection requires shuffling peer lists.
 
-| Implementation | Behavior |
-|----------------|----------|
-| `rand.Shuffle()` (global) | Lock contention under parallel calls |
-| `rng.Shuffle()` (local) | No contention, each goroutine has own RNG |
+| Implementation | ns/op | Speedup |
+|----------------|------:|--------:|
+| `rand.Shuffle()` (global) | 84.71 | baseline |
+| `rng.Shuffle()` (local) | 55.78 | **1.5x** |
 
 ```go
 // Before: global RNG with internal mutex
@@ -261,11 +245,13 @@ Message receive path: `Receive → Hash → MarkSeen → Broadcast`
 
 | Component | Before | After | Improvement |
 |-----------|-------:|------:|------------:|
-| MessageHash | 426.8 ns | 45.0 ns | 9.5x faster |
-| MarkSeen (cache hit) | 40.46 ns | 10.12 ns | 4.0x faster |
-| Memory allocation | 160 B/msg | 0 B/msg | **zero-alloc** |
+| MessageHash | 398.9 ns | 41.24 ns | 9.7x faster |
+| MarkSeen (cache hit) | 27.79 ns | 7.74 ns | 3.6x faster |
+| FullFlow (single) | 418.0 ns | 167.6 ns | **2.5x faster** |
+| FullFlow (parallel) | - | 51.89 ns | **8.0x faster** |
+| Memory allocation | 160 B/msg | 32 B/msg | **80% 감소** |
 
-**Total hot path: ~10x faster, zero allocations**
+**Total hot path: ~8x faster in parallel workloads**
 
 ### Run BroadcastManager Benchmarks
 
@@ -305,11 +291,7 @@ ok  	github.com/go-p2p-network/go-p2p/pkg/node       6.736s
 
 ### Test Screenshots
 
-> Add your test execution screenshots here
-
-```
-[INSERT TEST SCREENSHOT HERE]
-```
+![Test Results](files/태스트.png)
 
 ---
 
